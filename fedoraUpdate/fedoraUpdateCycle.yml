@@ -1,0 +1,19 @@
+- name: Update all packages
+  dnf:
+    name: '*'
+    state: latest
+      
+- name: Perform system upgrade download
+  shell: dnf -y system-upgrade download --releasever={{ item }}
+
+- name: Reboot to update
+  shell: dnf -y system-upgrade reboot
+  async: 1
+  poll: 0
+
+- name: Wait for the reboot & install to complete
+  wait_for_connection:
+    connect_timeout: 20
+    sleep: 5
+    delay: 5
+    timeout: 7200

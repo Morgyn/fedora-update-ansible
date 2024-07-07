@@ -1,0 +1,84 @@
+---
+# vi:et:sts=2:sw=2
+- name: Update Fedora Server
+  hosts: all
+  gather_facts: yes
+  tasks:
+    - name: Fetch Fedora releases JSON locally
+      delegate_to: localhost
+      shell: |
+        curl -sq https://fedoraproject.org/releases.json
+      register: release_json
+
+    # Get all variables to get right version
+    ### Start variant 
+    - name: Get variant
+      shell: ( . /etc/os-release ; echo $VARIANT_ID )
+      register: variant_id
+
+    - name: Set variant as a fact
+      set_fact:
+        variant: "{{ variant_id.stdout.strip() }}"
+
+    - name: Show variant
+      debug:
+        msg: "variant: {{ variant }}"
+    ### End variant
+
+    ### Start architecture 
+    - name: Get architecture
+      command: uname -m
+      register: architecture
+
+    - name: Set architecture as a fact
+      set_fact:
+        architecture: "{{ architecture.stdout.strip() }}"
+
+    - name: Show architecture
+      debug:
+        msg: "architecture: {{ architecture }}"
+    ### End architecture
+
+    ### Start target_version
+    - name: Get the latest version of Fedora for the arch and variant
+      set_fact:
+        target_version: >-
+          {{ release_json.stdout | from_json | selectattr('arch', 'match', architecture, 'ignorecase') |
+                         selectattr('variant', 'match', variant, 'ignorecase') |
+                         sort(attribute='version', reverse=True) | map(attribute='version') | first }}
+
+    - name: Show target_version
+      debug:
+        msg: "target_version: {{ target_version }}"
+    ### End target_version
+
+
+    - name: Ensure dnf system-upgrade plugin is installed
+      dnf:
+        name: dnf-command(system-upgrade)
+        state: present
+
+    #########
+    ### The tasks above should be static for the entire update
+    #########
+
+    - name: Set inital current version
+      set_fact:
+        current_version: "{{ ansible_distribution_version }}"
+
+    - name: Generate version list
+      set_fact:
+        version_list: "{{ range(current_version|int + 2, target_version|int + 1, 2) | list }}"
+
+    - name: Add target version if not in list
+      set_fact:
+        version_list: "{{ version_list + [target_version] }}"
+      when: target_version not in version_list
+
+    - name: Show version_list
+      debug:
+        msg: "version_list: {{ version_list }}"
+  
+    - name: Update Loop
+      ansible.builtin.include_tasks: fedoraUpdate/fedoraUpdateCycle.yml
+      loop: "{{ version_list }}"
