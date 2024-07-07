@@ -45,7 +45,7 @@
         target_version: >-
           {{ release_json.stdout | from_json | selectattr('arch', 'match', architecture, 'ignorecase') |
                          selectattr('variant', 'match', variant, 'ignorecase') |
-                         sort(attribute='version', reverse=True) | map(attribute='version') | first }}
+                         sort(attribute='version', reverse=True) | map(attribute='version') | first | int}}
 
     - name: Show target_version
       debug:
@@ -72,8 +72,8 @@
 
     - name: Add target version if not in list
       set_fact:
-        version_list: "{{ version_list + [target_version] }}"
-      when: target_version not in version_list
+        version_list: "{{ version_list + [target_version|int] }}"
+      when: target_version|int not in version_list
 
     - name: Show version_list
       debug:
