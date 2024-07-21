@@ -42,16 +42,25 @@
     ### Start target_version
     - name: Get the latest version of Fedora for the arch and variant
       set_fact:
-        target_version: >-
+        default_target_version: >-
           {{ release_json.stdout | from_json | selectattr('arch', 'match', architecture, 'ignorecase') |
-                         selectattr('variant', 'match', variant, 'ignorecase') |
-                         sort(attribute='version', reverse=True) | map(attribute='version') | first | int}}
+                        selectattr('variant', 'match', variant, 'ignorecase') |
+                        sort(attribute='version', reverse=True) | map(attribute='version') | first | int }}
+
+    - name: Set target_version
+      set_fact:
+        target_version: "{{ (override_version | default(default_target_version)) }}"
+
+    - name: Validate target_version is an integer
+      assert:
+        that:
+          - target_version is regex("^[0-9]+$")
+        fail_msg: "The target_version must be an integer."
 
     - name: Show target_version
       debug:
         msg: "target_version: {{ target_version }}"
     ### End target_version
-
 
     - name: Ensure dnf system-upgrade plugin is installed
       dnf:
