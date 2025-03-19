@@ -43,9 +43,16 @@
     - name: Get the latest version of Fedora for the arch and variant
       set_fact:
         default_target_version: >-
-          {{ release_json.stdout | from_json | selectattr('arch', 'match', architecture, 'ignorecase') |
-                        selectattr('variant', 'match', variant, 'ignorecase') |
-                        sort(attribute='version', reverse=True) | map(attribute='version') | first | int }}
+          {{ release_json.stdout |
+               from_json |
+               selectattr('arch', 'match', architecture, 'ignorecase') |
+               selectattr('variant', 'match', variant, 'ignorecase') |
+               selectattr('version', 'regex', '^\d+$') |
+               sort(attribute='version', reverse=True) |
+               map(attribute='version') |        
+               first |
+               int
+          }}
 
     - name: Set target_version
       set_fact:
